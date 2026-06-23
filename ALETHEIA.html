@@ -980,7 +980,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
 
   // === FILE UPLOAD ===
   btnUpload.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', (e) => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+  fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; fileInput.value = ''; if(f) loadFile(f); });
   dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
   dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
@@ -1000,6 +1000,11 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
 
   function loadIntoIframe(html) {
     loaded = false;
+    // Clean up any active state from the previous document
+    deselectElement();
+    selectedEls = [];
+    if(drawTool) setDrawTool(null);
+
     function initAfterLoad() {
       try {
         iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -1016,7 +1021,8 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
         saveState();
         updateInsertButtons();
         setupIframeListeners();
-        // Round-trip: pull embedded reflection notes back into the panel
+        // Round-trip: pull embedded reflection notes back into the panel;
+        // if none, clear whatever the previous file left behind.
         try {
           const embedded = iframeDoc.querySelector('[data-editor-reflection]');
           if(embedded) {
@@ -1028,6 +1034,11 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
             try { localStorage.setItem('vhe_reflection_notes', reflectionBody.innerHTML); } catch(e){}
             reflectionPanel.classList.add('open');
             btnInsertReflection.classList.add('active');
+          } else {
+            reflectionBody.innerHTML = '';
+            reflectionPanel.classList.remove('open');
+            btnInsertReflection.classList.remove('active');
+            applyReflectionScale();
           }
         } catch(ex) {}
       } catch(ex) {
@@ -1035,12 +1046,14 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
       }
     }
     try {
-      // Assign onload BEFORE writing — fixes the race condition
       iframe.onload = initAfterLoad;
-      iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
+      // document.open() may replace the contentDocument object, making any previously
+      // cached reference stale. Re-read after open() so write() targets the live document.
+      const d = iframe.contentDocument || iframe.contentWindow.document;
+      d.open();
+      const freshDoc = iframe.contentDocument || iframe.contentWindow.document;
+      freshDoc.write(html);
+      freshDoc.close();
       // Fallback: if onload never fires (some browsers with document.write), retry after 400ms
       setTimeout(function(){ if(!loaded) initAfterLoad(); }, 400);
     } catch(ex) {
