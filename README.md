@@ -103,7 +103,7 @@ examples/          ← a sample study HTML to open and try
 
 ## Contributing
 
-This is a personal study tool, shared in case it's useful. Issues and PRs are welcome. If you extend it, read **DEVELOPER.md** first — especially the invariants (flow‑preserving spacers, `canvasScale`‑aware pointer math, and "re-bind iframe listeners in `setupIframeListeners`").
+This is a personal study tool, shared in case it's useful. Issues and PRs are welcome. If you extend it, read **DEVELOPER.md** first.
 
 ## License
 
