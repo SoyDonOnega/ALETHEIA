@@ -40,13 +40,15 @@ It is **one HTML file**. There is no install, no account, no server. Everything 
 | | |
 |---|---|
 | **Two modes** | *Browse* to read and navigate, *Edit* to manipulate. |
-| **Direct manipulation** | drag, resize, rotate, multi-select, marquee, group, z-order. |
+| **Direct manipulation** | drag, resize, rotate, multi-select, marquee. |
 | **Study objects** | 21 outline marks/icons + text boxes, images, tables, sticky notes, links. |
 | **In-place text** | double-click to edit; type a centred label inside any shape or note. |
 | **Annotation** | pencil · highlighter · area eraser, each with its own pointer. |
 | **Reflection panel** | `/` blocks (headings, to-dos, callouts, toggles, key terms…), Markdown in/out, optional AI. |
 | **Proportional canvas** | opening the notes panel scales the page down — it never reflows. |
-| **Clean export** | download a portable HTML; editor UI is stripped, content + notes kept. |
+| **Multi-select format** | select several elements at once; all format actions apply to the whole selection. |
+| **System paste** | Ctrl/⌘+V pastes images or text directly from the OS clipboard. |
+| **Clean export** | downloaded as `<original-name>-editado.html`; editor UI stripped, content + notes kept. |
 | **Keyboard-first** | full shortcut set; ⌘ on Mac, Ctrl elsewhere. |
 | **Offline & private** | pure vanilla JS in a single file; files stay on your device. |
 
@@ -55,7 +57,7 @@ It is **one HTML file**. There is no install, no account, no server. Everything 
 1. **Download** [`ALETHEIA.html`](ALETHEIA.html) (the whole app is this one file).
 2. **Double-click it** — it opens in your default browser.
 3. **Drag an HTML file** onto the drop zone (or click **Upload**). Try [`examples/study-note-example.html`](examples/study-note-example.html).
-4. Switch to **Edit** (`Shift+E`), then select, annotate and rearrange. Press **Download** when done.
+4. Switch to **Edit** (`Shift+E`), then select, annotate and edit. Press **Download** when done.
 
 No internet connection is needed once the file has loaded.
 
