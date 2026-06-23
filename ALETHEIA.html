@@ -167,7 +167,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
 .shape-item:hover { background: var(--accent-soft); border-color: var(--accent); transform: scale(1.08); }
 .shape-item svg { width: 26px; height: 26px; }
 
-/* Dropdown menus (Arrange: align / order) */
+/* Dropdown menus */
 .menu-popup { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 5px; z-index: 5000; display: none; min-width: 180px; }
 .menu-popup.show { display: block; }
 .menu-popup button { display: block; width: 100%; text-align: left; padding: 7px 12px; border: none; background: transparent; color: var(--text); font-size: 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit; }
@@ -338,6 +338,14 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
             Grid
           </button>
           <span class="ribbon-group-label">View</span>
+        </div>
+      </div>
+      <div class="ribbon-group">
+        <div class="rg-wrap" style="align-items:center;gap:6px;">
+          <button class="rb-btn rb-btn-sm" id="btn-zoom-out" title="Zoom out (-)">−</button>
+          <span id="zoom-label" style="font-size:11px;min-width:34px;text-align:center;color:var(--text-muted);">100%</span>
+          <button class="rb-btn rb-btn-sm" id="btn-zoom-in" title="Zoom in (+)">+</button>
+          <span class="ribbon-group-label">Zoom</span>
         </div>
       </div>
     </div>
@@ -740,6 +748,9 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
   let gridVisible = false;
   let zoomLevel = 100;
   let canvasScale = 1;  // <1 while the Reflection panel scales the canvas down (no reflow)
+  let manualZoom = 1.0;
+  let _reflScale = 1.0;
+  let currentFileName = 'documento-editado';
   // Scale the iframe down proportionally when Reflection is open so the HTML never reflows;
   // restores to 1:1 when closed. canvasScale stays 1 when closed → pointer math is unchanged.
   function applyReflectionScale() {
@@ -747,20 +758,38 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     const wrap = document.getElementById('canvas-wrap');
     const open = reflectionPanel.classList.contains('open');
     if(!open || !wrap) {
-      iframe.style.width = ''; iframe.style.height = ''; iframe.style.transform = ''; iframe.style.transformOrigin = '';
-      canvasScale = 1; zoomLevel = 100;
+      _reflScale = 1;
+      canvasScale = manualZoom;
+      zoomLevel = manualZoom * 100;
+      if(manualZoom !== 1) {
+        iframe.style.transformOrigin = 'top left';
+        iframe.style.transform = 'scale(' + manualZoom + ')';
+      } else {
+        iframe.style.transform = '';
+        iframe.style.transformOrigin = '';
+      }
+      iframe.style.width = '';
+      iframe.style.height = '';
       if(selectedEl) addResizeHandles();
+      updateZoomLabel();
       return;
     }
     const avail = wrap.clientWidth;
     const design = (wrap.parentElement ? wrap.parentElement.clientWidth : avail) || avail;
-    const s = (design > 0 && avail > 0) ? (avail / design) : 1;
-    canvasScale = s; zoomLevel = s * 100;
+    _reflScale = (design > 0 && avail > 0) ? (avail / design) : 1;
+    canvasScale = _reflScale * manualZoom;
+    zoomLevel = canvasScale * 100;
     iframe.style.transformOrigin = 'top left';
     iframe.style.width = design + 'px';
-    iframe.style.height = (wrap.clientHeight / s) + 'px';
-    iframe.style.transform = 'scale(' + s + ')';
+    iframe.style.height = (wrap.clientHeight / _reflScale) + 'px';
+    iframe.style.transform = 'scale(' + canvasScale + ')';
     if(selectedEl) addResizeHandles();
+    updateZoomLabel();
+  }
+
+  function updateZoomLabel() {
+    const lbl = document.getElementById('zoom-label');
+    if(lbl) lbl.textContent = Math.round(manualZoom * 100) + '%';
   }
   let panelHiddenDuringDrag = false;
   let clipboardEl = null;
@@ -988,6 +1017,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     const reader = new FileReader();
     reader.onload = (e) => {
       originalHTML = e.target.result;
+      currentFileName = (file.name || 'documento').replace(/\.html?$/i, '');
       if(!originalHTML || originalHTML.trim().length === 0) { showError('The file is empty.'); return; }
       loadIntoIframe(originalHTML);
     };
@@ -1148,8 +1178,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
         deselectElement(); closeAllPopups();
       }
       if((e.key === 'Delete' || e.key === 'Backspace') && (selectedEl || selectedEls.length) && !isTypingInEditable(e)) { e.preventDefault(); deleteSelected(); }
-      if(e.shiftKey && !cmd && !e.altKey && e.key === 'G' && !isTypingInEditable(e)) { e.preventDefault(); groupOrUngroup(); }
-      if(e.shiftKey && !cmd && !e.altKey && (e.key === '}' || e.key === '{') && selectedEls.length && !isTypingInEditable(e)) { e.preventDefault(); orderZ(e.key === '}' ? 'forward' : 'backward'); }
+
       // Ctrl/⌘ + B/I/U → bold/italic/underline. While editing text the browser does it natively.
       if(cmd && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'i' || e.key === 'u')) {
         if(!isTypingInEditable(e) && selectedEl) { e.preventDefault(); toggleBlockFormat(selectedEl, e.key.toUpperCase()); }
@@ -1821,7 +1850,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
         delete el._editingCell;
       }
       el.contentEditable = 'false';
-      restoreLockedDims(el);
     });
     selectedEls = [];
     if(selectedEl) {
@@ -1834,7 +1862,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
         delete selectedEl._editingCell;
       }
       selectedEl.contentEditable = 'false';
-      restoreLockedDims(selectedEl);
       removeResizeHandles();
       selectedEl = null;
     }
@@ -1845,19 +1872,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     updateSelectionButtons();
   }
 
-  // Cleanup any editor-added styles on deselection (safety net)
-  function restoreLockedDims(el) {
-    if(!el || !el.dataset) return;
-    // Legacy cleanup: remove any dimension locking from previous approach
-    if(el.dataset.__editorLockedDims) {
-      el.style.minHeight = el.dataset.__editorOrigMinHeight || '';
-      el.style.boxSizing = el.dataset.__editorOrigBoxSizing || '';
-      if(!el.dataset.editorObject) el.style.position = '';
-      delete el.dataset.__editorLockedDims;
-      delete el.dataset.__editorOrigMinHeight;
-      delete el.dataset.__editorOrigBoxSizing;
-    }
-  }
 
   // === PANEL UPDATE ===
   function updatePanel() {
@@ -1892,16 +1906,17 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
   }
 
   // === PANEL EVENTS ===
-  pFont.addEventListener('change', () => { if(selectedEl) { selectedEl.style.fontFamily = pFont.value; saveState(); }});
-  pSize.addEventListener('input', () => { if(selectedEl) { selectedEl.style.fontSize = pSize.value + 'px'; saveState(); }});
-  pColor.addEventListener('input', () => { if(selectedEl) { selectedEl.style.color = pColor.value; saveState(); }});
-  pBg.addEventListener('input', () => { if(selectedEl) { selectedEl.style.backgroundColor = pBg.value; saveState(); }});
-  pBgClear.addEventListener('click', () => { if(selectedEl) { selectedEl.style.backgroundColor = ''; saveState(); }});
-  pOpacity.addEventListener('input', () => { if(selectedEl) { selectedEl.style.opacity = pOpacity.value/100; pOpacityVal.textContent = pOpacity.value+'%'; saveState(); }});
+  function selTargets() { return selectedEls.length ? selectedEls : (selectedEl ? [selectedEl] : []); }
+  pFont.addEventListener('change', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.fontFamily = pFont.value); saveState(); });
+  pSize.addEventListener('input', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.fontSize = pSize.value + 'px'); saveState(); });
+  pColor.addEventListener('input', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.color = pColor.value); saveState(); });
+  pBg.addEventListener('input', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.backgroundColor = pBg.value); saveState(); });
+  pBgClear.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.backgroundColor = ''); saveState(); });
+  pOpacity.addEventListener('input', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.opacity = pOpacity.value/100); pOpacityVal.textContent = pOpacity.value+'%'; saveState(); });
   pBorderW.addEventListener('input', () => { if(selectedEl) { applyBorder(); saveState(); }});
   pBorderS.addEventListener('change', () => { if(selectedEl) { applyBorder(); saveState(); }});
   pBorderC.addEventListener('input', () => { if(selectedEl) { applyBorder(); saveState(); }});
-  pBorderR.addEventListener('input', () => { if(selectedEl) { selectedEl.style.borderRadius = pBorderR.value + 'px'; saveState(); }});
+  pBorderR.addEventListener('input', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.borderRadius = pBorderR.value + 'px'); saveState(); });
   pShadowToggle.addEventListener('click', () => {
     if(!selectedEl) return;
     const hasShadow = pShadowToggle.classList.contains('active');
@@ -1927,81 +1942,58 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
   }
 
   // === RIBBON FORMAT BUTTONS ===
-  btnBold.addEventListener('click', () => { if(selectedEl) { const isBold = parseInt(getCS(selectedEl).fontWeight)>=700; selectedEl.style.fontWeight = isBold ? 'normal' : 'bold'; saveState(); }});
-  btnItalic.addEventListener('click', () => { if(selectedEl) { const isIt = getCS(selectedEl).fontStyle==='italic'; selectedEl.style.fontStyle = isIt ? 'normal' : 'italic'; saveState(); }});
-  btnUnderline.addEventListener('click', () => { if(selectedEl) { const isU = (getCS(selectedEl).textDecorationLine||'').includes('underline'); selectedEl.style.textDecoration = isU ? 'none' : 'underline'; saveState(); }});
-  btnAlignLeft.addEventListener('click', () => { if(selectedEl) { selectedEl.style.textAlign = 'left'; saveState(); }});
-  btnAlignCenter.addEventListener('click', () => { if(selectedEl) { selectedEl.style.textAlign = 'center'; saveState(); }});
-  btnAlignRight.addEventListener('click', () => { if(selectedEl) { selectedEl.style.textAlign = 'right'; saveState(); }});
+  btnBold.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; const isBold = parseInt(getCS(t[0]).fontWeight)>=700; t.forEach(el => el.style.fontWeight = isBold ? 'normal' : 'bold'); saveState(); });
+  btnItalic.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; const isIt = getCS(t[0]).fontStyle==='italic'; t.forEach(el => el.style.fontStyle = isIt ? 'normal' : 'italic'); saveState(); });
+  btnUnderline.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; const isU = (getCS(t[0]).textDecorationLine||'').includes('underline'); t.forEach(el => el.style.textDecoration = isU ? 'none' : 'underline'); saveState(); });
+  btnAlignLeft.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.textAlign = 'left'); saveState(); });
+  btnAlignCenter.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.textAlign = 'center'); saveState(); });
+  btnAlignRight.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => el.style.textAlign = 'right'); saveState(); });
 
   btnFillColor.addEventListener('click', () => {
-    if(!selectedEl) return;
+    const t = selTargets(); if(!t.length) return;
     const input = document.createElement('input');
     input.type = 'color';
-    input.value = rgbToHex(getCS(selectedEl).backgroundColor);
+    input.value = rgbToHex(getCS(t[0]).backgroundColor);
     input.style.position = 'fixed'; input.style.top = '-100px';
     document.body.appendChild(input);
-    input.addEventListener('input', () => { selectedEl.style.backgroundColor = input.value; });
+    input.addEventListener('input', () => { t.forEach(el => el.style.backgroundColor = input.value); });
     input.addEventListener('change', () => { saveState(); document.body.removeChild(input); });
     input.click();
   });
 
   btnStrokeColor.addEventListener('click', () => {
-    if(!selectedEl) return;
+    const t = selTargets(); if(!t.length) return;
     const input = document.createElement('input');
     input.type = 'color';
-    input.value = rgbToHex(getCS(selectedEl).borderColor);
+    input.value = rgbToHex(getCS(t[0]).borderColor);
     input.style.position = 'fixed'; input.style.top = '-100px';
     document.body.appendChild(input);
-    input.addEventListener('input', () => { selectedEl.style.border = '2px solid ' + input.value; });
+    input.addEventListener('input', () => { t.forEach(el => el.style.border = '2px solid ' + input.value); });
     input.addEventListener('change', () => { saveState(); document.body.removeChild(input); });
     input.click();
   });
 
   btnShadow.addEventListener('click', () => {
-    if(!selectedEl) return;
-    const hasShadow = getCS(selectedEl).boxShadow !== 'none';
-    selectedEl.style.boxShadow = hasShadow ? 'none' : '3px 3px 10px rgba(0,0,0,0.3)';
+    const t = selTargets(); if(!t.length) return;
+    const hasShadow = getCS(t[0]).boxShadow !== 'none';
+    t.forEach(el => el.style.boxShadow = hasShadow ? 'none' : '3px 3px 10px rgba(0,0,0,0.3)');
     saveState(); updatePanel();
   });
 
   // Rotation
-  btnRotateLeft.addEventListener('click', () => { if(selectedEl) { rotateEl(-90); }});
-  btnRotateRight.addEventListener('click', () => { if(selectedEl) { rotateEl(90); }});
+  btnRotateLeft.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => { const tx = el.style.transform||''; const m = tx.match(/rotate\(([-\d.]+)deg\)/); const cur = m ? parseFloat(m[1]) : 0; const nr = cur - 90; el.style.transform = m ? tx.replace(/rotate\([-\d.]+deg\)/, 'rotate('+nr+'deg)') : tx+' rotate('+nr+'deg)'; }); saveState(); updatePanel(); });
+  btnRotateRight.addEventListener('click', () => { const t = selTargets(); if(!t.length) return; t.forEach(el => { const tx = el.style.transform||''; const m = tx.match(/rotate\(([-\d.]+)deg\)/); const cur = m ? parseFloat(m[1]) : 0; const nr = cur + 90; el.style.transform = m ? tx.replace(/rotate\([-\d.]+deg\)/, 'rotate('+nr+'deg)') : tx+' rotate('+nr+'deg)'; }); saveState(); updatePanel(); });
   btnFlipH.addEventListener('click', () => {
-    if(!selectedEl) return;
-    const t = selectedEl.style.transform || '';
-    if(t.includes('scaleX(-1)')) { selectedEl.style.transform = t.replace('scaleX(-1)','').trim(); }
-    else { selectedEl.style.transform = t + ' scaleX(-1)'; }
+    const t = selTargets(); if(!t.length) return;
+    t.forEach(el => {
+      const tx = el.style.transform || '';
+      el.style.transform = tx.includes('scaleX(-1)') ? tx.replace('scaleX(-1)','').trim() : tx + ' scaleX(-1)';
+    });
     saveState();
   });
 
-  function rotateEl(deg) {
-    const t = selectedEl.style.transform || '';
-    const rotMatch = t.match(/rotate\(([-\d.]+)deg\)/);
-    const current = rotMatch ? parseFloat(rotMatch[1]) : 0;
-    const newRot = current + deg;
-    if(rotMatch) { selectedEl.style.transform = t.replace(/rotate\([-\d.]+deg\)/, 'rotate('+newRot+'deg)'); }
-    else { selectedEl.style.transform = t + ' rotate('+newRot+'deg)'; }
-    saveState(); updatePanel();
-  }
 
-  // === Z-ORDER ===
-
-  function getMaxZ() {
-    let max = 0;
-    if(!iframeDoc) return max;
-    iframeDoc.querySelectorAll('[style*="z-index"]').forEach(el => { const z = parseInt(el.style.zIndex)||0; if(z>max) max=z; });
-    return max;
-  }
-  function getMinZ() {
-    let min = 0;
-    if(!iframeDoc) return min;
-    iframeDoc.querySelectorAll('[style*="z-index"]').forEach(el => { const z = parseInt(el.style.zIndex)||0; if(z<min) min=z; });
-    return min;
-  }
-
-  // === ARRANGE: marquee selection, object align/distribute, group, z-order ===
+  // === ARRANGE: marquee selection ===
 
   // True for editor-internal nodes and non-rendered elements that must never be selected.
   function isEditorUI(el) {
@@ -2075,171 +2067,21 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     return spacer;
   }
 
-  function toAbsolute(el) {
-    const win = iframe.contentWindow;
-    const cs = win.getComputedStyle(el);
-    if(cs.position === 'absolute' || cs.position === 'fixed') return;
-    const elR = el.getBoundingClientRect();
-    const parent = el.offsetParent || iframeDoc.body;
-    const parentR = parent.getBoundingClientRect();
-    // Hold its place in the document so the surrounding content stays put
-    if(isFlowElement(el)) flowSpacer(el);
-    if(!el.style.width) el.style.width = elR.width + 'px';
-    if(!el.style.height) el.style.height = elR.height + 'px';
-    el.style.position = 'absolute';
-    el.style.left = (elR.left - parentR.left - parent.clientLeft + (parent.scrollLeft || 0)) + 'px';
-    el.style.top = (elR.top - parentR.top - parent.clientTop + (parent.scrollTop || 0)) + 'px';
-    const pPos = win.getComputedStyle(parent).position;
-    if(!pPos || pPos === 'static') parent.style.position = 'relative';
-  }
 
-  // Body content box in iframe-viewport coordinates (alignment reference for a single object).
-  function canvasBox() {
-    const b = iframeDoc.body.getBoundingClientRect();
-    return { left: b.left, top: b.top, right: b.left + iframeDoc.body.clientWidth, bottom: b.top + iframeDoc.body.clientHeight };
-  }
-
-  // Align selected objects. edge ∈ left|center|right|top|middle|bottom.
-  // ≥2 objects → align to the selection bounds; 1 object → align to the canvas.
-  function alignObjects(edge) {
-    if(!selectedEls.length) return;
-    selectedEls.forEach(toAbsolute);
-    const items = selectedEls.map(el => ({ el, L: parseFloat(el.style.left) || 0, T: parseFloat(el.style.top) || 0, r: el.getBoundingClientRect() }));
-    let b;
-    if(items.length >= 2) {
-      b = {
-        left: Math.min(...items.map(i => i.r.left)),
-        top: Math.min(...items.map(i => i.r.top)),
-        right: Math.max(...items.map(i => i.r.right)),
-        bottom: Math.max(...items.map(i => i.r.bottom))
-      };
-    } else {
-      b = canvasBox();
-    }
-    items.forEach(i => {
-      if(edge === 'left')        i.el.style.left = (i.L + (b.left - i.r.left)) + 'px';
-      else if(edge === 'right')  i.el.style.left = (i.L + (b.right - i.r.right)) + 'px';
-      else if(edge === 'center') i.el.style.left = (i.L + ((b.left + b.right) / 2 - (i.r.left + i.r.right) / 2)) + 'px';
-      else if(edge === 'top')    i.el.style.top = (i.T + (b.top - i.r.top)) + 'px';
-      else if(edge === 'bottom') i.el.style.top = (i.T + (b.bottom - i.r.bottom)) + 'px';
-      else if(edge === 'middle') i.el.style.top = (i.T + ((b.top + b.bottom) / 2 - (i.r.top + i.r.bottom) / 2)) + 'px';
-    });
-    saveState();
-    updatePanel();
-    if(selectedEl) addResizeHandles();
-  }
-
-  // Distribute centers evenly along an axis ('h' or 'v'). Needs ≥3 objects;
-  // the two extremes stay fixed and the inner ones get equal center spacing.
-  function distributeObjects(axis) {
-    if(selectedEls.length < 3) return;
-    selectedEls.forEach(toAbsolute);
-    const items = selectedEls.map(el => ({ el, L: parseFloat(el.style.left) || 0, T: parseFloat(el.style.top) || 0, r: el.getBoundingClientRect() }));
-    const cen = i => axis === 'h' ? (i.r.left + i.r.right) / 2 : (i.r.top + i.r.bottom) / 2;
-    items.sort((a, b) => cen(a) - cen(b));
-    const first = cen(items[0]), last = cen(items[items.length - 1]);
-    const gap = (last - first) / (items.length - 1);
-    items.forEach((i, idx) => {
-      if(idx === 0 || idx === items.length - 1) return;
-      const targetCenter = first + gap * idx;
-      const delta = targetCenter - cen(i);
-      if(axis === 'h') i.el.style.left = (i.L + delta) + 'px';
-      else i.el.style.top = (i.T + delta) + 'px';
-    });
-    saveState();
-    updatePanel();
-    if(selectedEl) addResizeHandles();
-  }
-
-  // Group ≥2 selected objects into a single positioned wrapper.
-  function groupSelected() {
-    if(selectedEls.length < 2 || !iframeDoc) return;
-    const els = selectedEls.slice();
-    els.forEach(toAbsolute);
-    const rects = els.map(el => el.getBoundingClientRect());
-    const minL = Math.min(...rects.map(r => r.left));
-    const minT = Math.min(...rects.map(r => r.top));
-    const maxR = Math.max(...rects.map(r => r.right));
-    const maxB = Math.max(...rects.map(r => r.bottom));
-    const parent = iframeDoc.body;
-    const parentR = parent.getBoundingClientRect();
-    if(iframe.contentWindow.getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
-    const group = iframeDoc.createElement('div');
-    group.dataset.editorObject = 'group';
-    group.style.position = 'absolute';
-    group.style.left = (minL - parentR.left - parent.clientLeft + (parent.scrollLeft || 0)) + 'px';
-    group.style.top = (minT - parentR.top - parent.clientTop + (parent.scrollTop || 0)) + 'px';
-    group.style.width = (maxR - minL) + 'px';
-    group.style.height = (maxB - minT) + 'px';
-    group.style.zIndex = (getMaxZ() + 1);
-    parent.appendChild(group);
-    els.forEach((el, i) => {
-      el.style.position = 'absolute';
-      el.style.left = (rects[i].left - minL) + 'px';
-      el.style.top = (rects[i].top - minT) + 'px';
-      group.appendChild(el);
-    });
-    deselectElement();
-    selectElement(group);
-    saveState();
-  }
-
-  // Ungroup the selected group, freeing its children back to the group's parent.
-  function ungroupSelected() {
-    const g = selectedEl;
-    if(!g || !g.dataset || g.dataset.editorObject !== 'group' || !iframeDoc) return;
-    removeResizeHandles();
-    // v1: a rotated group is reset to axis-aligned before ungrouping so children land correctly.
-    if(g.style.transform && /rotate\(/.test(g.style.transform)) {
-      g.style.transform = g.style.transform.replace(/rotate\([-\d.]+deg\)/, '').trim();
-      showToast('Rotation reset on ungroup');
-    }
-    const parent = g.parentElement;
-    const parentR = parent.getBoundingClientRect();
-    const kids = Array.from(g.children).filter(c => !isEditorUI(c));
-    const freed = [];
-    kids.forEach(c => {
-      const cR = c.getBoundingClientRect();
-      c.style.position = 'absolute';
-      c.style.left = (cR.left - parentR.left - parent.clientLeft + (parent.scrollLeft || 0)) + 'px';
-      c.style.top = (cR.top - parentR.top - parent.clientTop + (parent.scrollTop || 0)) + 'px';
-      parent.appendChild(c);
-      freed.push(c);
-    });
-    g.remove();
-    applyMarqueeSelection(freed);
-    saveState();
-  }
-
-  // Z-order. Front/back jump past everything; forward/backward step by one.
-  function orderZ(mode) {
-    if(!selectedEls.length) return;
-    selectedEls.forEach(el => {
-      ensurePositioned(el);
-      const cur = parseInt(el.style.zIndex) || 0;
-      if(mode === 'front') el.style.zIndex = getMaxZ() + 1;
-      else if(mode === 'back') el.style.zIndex = getMinZ() - 1;
-      else if(mode === 'forward') el.style.zIndex = cur + 1;
-      else if(mode === 'backward') el.style.zIndex = cur - 1;
-    });
-    saveState();
-  }
-
-  // Group/ungroup toggle (Shift+G and the ribbon buttons share this).
-  function groupOrUngroup() {
-    if(selectedEl && selectedEl.dataset && selectedEl.dataset.editorObject === 'group' && selectedEls.length <= 1) ungroupSelected();
-    else if(selectedEls.length >= 2) groupSelected();
-  }
-
-  function openMenu(menu, btn) {
-    closeAllPopups();
-    const r = btn.getBoundingClientRect();
-    menu.style.top = (r.bottom + 4) + 'px';
-    menu.style.left = r.left + 'px';
-    menu.classList.add('show');
-  }
 
   // === GRID & SNAP ===
+  // === ZOOM ===
+  const ZOOM_STEPS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+  document.getElementById('btn-zoom-in').addEventListener('click', () => {
+    const idx = ZOOM_STEPS.findIndex(z => z > manualZoom + 0.01);
+    if(idx !== -1) { manualZoom = ZOOM_STEPS[idx]; applyReflectionScale(); }
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', () => {
+    const arr = [...ZOOM_STEPS].reverse();
+    const idx = arr.findIndex(z => z < manualZoom - 0.01);
+    if(idx !== -1) { manualZoom = arr[idx]; applyReflectionScale(); }
+  });
+
   btnGridToggle.addEventListener('click', () => {
     gridVisible = !gridVisible;
     btnGridToggle.classList.toggle('active', gridVisible);
@@ -2314,7 +2156,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     selectedEl.style.outline = '3px solid #0A0A0A';
     setTimeout(() => { if(selectedEl) selectedEl.style.outline = origOutline || '2px dashed #666666'; }, 300);
     // Toast notification
-    showToast('📋 Copiado');
+    showToast('Copied');
   }
 
   function pasteFromClipboard() {
@@ -2352,7 +2194,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     target.appendChild(clone);
     selectElement(clone);
     saveState();
-    showToast('📌 Pegado');
+    showToast('Pasted');
   }
 
   function showToast(msg) {
@@ -3765,12 +3607,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
 
     let html = '<!DOCTYPE html>\n' + iframeDoc.documentElement.outerHTML;
     if(reflectionAside) reflectionAside.remove();
-    // Remove injected helper script
-    const helperMarker = 'document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a");if(a&&a.getAttribute("href")==="#"){e.preventDefault();}});';
-    const sOpen = '<' + 'script>';
-    const sClose = '<' + '/script>';
-    html = html.replace(sOpen + helperMarker + sClose, '');
-
     // Restore
     if(selEl) {
       selEl.style.outline = origOutline;
@@ -3885,16 +3721,7 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
       positionPanelNearElement();
       saveState();
     }
-    // Shift+G: group/ungroup toggle
-    if(e.shiftKey && !cmd && !e.altKey && e.key === 'G' && !isTypingInEditable(e)) {
-      e.preventDefault();
-      groupOrUngroup();
-    }
-    // Shift+] / Shift+[ : order forward / backward (Shift produces } / {)
-    if(e.shiftKey && !cmd && !e.altKey && (e.key === '}' || e.key === '{') && selectedEls.length && !isTypingInEditable(e)) {
-      e.preventDefault();
-      orderZ(e.key === '}' ? 'forward' : 'backward');
-    }
+
     // Ctrl/⌘ + B/I/U: format the selected block (browser handles native formatting while editing inline)
     if(cmd && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'i' || e.key === 'u') && selectedEl && !isTypingInEditable(e)) {
       e.preventDefault();
@@ -3911,11 +3738,62 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'documento-editado.html';
+    a.download = currentFileName + '-editado.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  // === SYSTEM CLIPBOARD PASTE ===
+  document.addEventListener('paste', (e) => {
+    if(!loaded || !editMode || !iframeDoc) return;
+    if(!iframeOverlay.classList.contains('active')) return;
+    const cd = e.clipboardData;
+    if(!cd) return;
+    const imgItem = [...cd.items].find(i => i.kind === 'file' && i.type.startsWith('image/'));
+    if(imgItem) {
+      e.preventDefault();
+      const file = imgItem.getAsFile();
+      if(!file) return;
+      fileToBase64(file, (data) => {
+        const wrapper = iframeDoc.createElement('div');
+        wrapper.setAttribute('data-editor-object', 'image');
+        wrapper.style.cssText = 'position:absolute;left:60px;top:60px;width:300px;cursor:move;z-index:10;display:inline-block;';
+        const img = iframeDoc.createElement('img');
+        img.src = data;
+        img.style.cssText = 'width:100%;height:auto;display:block;pointer-events:none;user-select:none;';
+        img.onload = function() {
+          const ratio = img.naturalHeight / img.naturalWidth;
+          const w = Math.min(300, img.naturalWidth);
+          wrapper.style.width = w + 'px';
+          wrapper.style.height = Math.round(w * ratio) + 'px';
+        };
+        wrapper.appendChild(img);
+        getInsertTarget().appendChild(wrapper);
+        selectElement(wrapper);
+        saveState();
+        showToast('Image pasted');
+      });
+      return;
+    }
+    if(!clipboardEl) {
+      const textItem = [...cd.items].find(i => i.kind === 'string' && i.type === 'text/plain');
+      if(textItem) {
+        e.preventDefault();
+        textItem.getAsString((text) => {
+          if(!text || !text.trim()) return;
+          const div = iframeDoc.createElement('div');
+          div.setAttribute('data-editor-object', 'textbox');
+          div.style.cssText = 'position:absolute;left:50px;top:50px;width:200px;min-height:40px;padding:10px;border:1px solid #CCCCCC;background:transparent;font-size:14px;font-family:system-ui,-apple-system,"Helvetica Neue",sans-serif;cursor:move;z-index:10;';
+          div.textContent = text.trim();
+          getInsertTarget().appendChild(div);
+          selectElement(div);
+          saveState();
+          showToast('Text pasted');
+        });
+      }
+    }
   });
 
   // === POPUPS ===
