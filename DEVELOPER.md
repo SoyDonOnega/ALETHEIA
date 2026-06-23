@@ -2,7 +2,7 @@
 
 > Audience: an AI (or engineer) that needs to understand the **complete current state** of this project and **how every element works**, well enough to extend or fix it without re-reading the whole source first.
 >
-> **Document status** — Sources: the live source `ALETHEIA.html` (single file). Coverage: all subsystems, functions, IDs, storage keys and export semantics were read from source, not memory. Currency: reflects the build as of 2026‑06‑23 (ALETHEIA rebrand + typographic logo, 21 study shapes/icons, area eraser with 3 size presets, distinct tool cursors, unified note/highlighter palette, study slash‑blocks, centred editable text in notes/shapes, links open in a new window, Reflection Markdown import/export + clear + **proportional canvas scaling**, Mac ⌘ shortcuts, Align/Order/Group buttons removed). Confidence: high; line numbers are intentionally omitted (they drift) — navigate by the function names and section banners (`// === ... ===`) quoted throughout.
+> **Document status** — Sources: the live source `ALETHEIA.html` (single file). Coverage: all subsystems, functions, IDs, storage keys and export semantics were read from source, not memory. Currency: reflects the build as of 2026‑06‑23 (ALETHEIA rebrand + typographic logo, 21 study shapes/icons, area eraser with 3 size presets, distinct tool cursors, unified note/highlighter palette, study slash‑blocks, centred editable text in notes/shapes, links open in a new window, Reflection Markdown import/export + clear + **proportional canvas scaling**, Mac ⌘ shortcuts, **Arrange subsystem fully removed** (group/order/align/distribute gone from code and UI), **multi-select format**, **system clipboard paste**, **filename-preserving export**). Confidence: high; line numbers are intentionally omitted (they drift) — navigate by the function names and section banners (`// === ... ===`) quoted throughout.
 
 ---
 
@@ -94,7 +94,8 @@ Read this before touching anything.
 | `pendingSelect` | deferred click: decide on mouseup whether it was a click (select) or a drag (marquee) |
 | `isMarquee`, `marqueeStart`, `marqueeEl` | rubber-band selection state |
 | `history[]`, `historyIndex` | undo stack of `getCleanHTML()` strings (cap 60) |
-| `clipboardEl`, `clipboardSource`, `pasteCount` | copy/paste |
+| `clipboardEl`, `clipboardSource`, `pasteCount` | internal copy/paste; `document.addEventListener('paste')` also handles OS clipboard images and plain text |
+| `currentFileName` | stem of the loaded filename (`.html` stripped); used to name the download `<name>-editado.html` |
 | `drawTool` (`null\|'pen'\|'marker'\|'eraser'`), `penColor/penWidth`, `markerColor/markerWidth`, `eraserWidth`, `curStroke/curPts`, `erasing` | annotation tools (`markerColor` default `#FFE45C`; `eraserWidth` presets 14/28/48) |
 | `slashOpen`, `slashStart`, `slashIndex`, `slashDoc`, `slashOffset` | slash-command menu |
 | `gridVisible`, `zoomLevel`, `canvasScale`, `lastClickedCell`, `selectedTableCells[]` | misc. `canvasScale`<1 only while Reflection scales the canvas; `zoomLevel = canvasScale*100` keeps resize math in sync |
@@ -112,7 +113,7 @@ Group labels are hidden by CSS (`.ribbon-group-label{display:none}`); `.ribbon-g
   2. Annotate: `btn-insert-pencil`, `btn-insert-highlight`, `btn-insert-eraser`.
   3. `btn-insert-reflection`.
   Picking any *object/annotation* insert tool deactivates an active draw tool (`if(drawTool) setDrawTool(null)`).
-- **Format**: text style `btn-bold`/`btn-italic`/`btn-underline` (letter‑only buttons **B/I/U** — no duplicate icon; shortcut `Ctrl/⌘+B/I/U`); *text* align `btn-align-left/center/right`; style `btn-fill-color` (paint‑bucket icon), `btn-stroke-color` (bold frame icon), `btn-shadow` (offset‑squares icon); rotate `btn-rotate-left`/`btn-rotate-right`/`btn-flip-h`. **Align, Distribute, Order and Group/Ungroup ribbon buttons were removed** — group/order remain **keyboard‑only** (§10); `alignObjects`/`distributeObjects` still exist in code but have no UI.
+- **Format**: text style `btn-bold`/`btn-italic`/`btn-underline` (letter‑only buttons **B/I/U** — no duplicate icon; shortcut `Ctrl/⌘+B/I/U`); *text* align `btn-align-left/center/right`; style `btn-fill-color` (paint‑bucket icon), `btn-stroke-color` (bold frame icon), `btn-shadow` (offset‑squares icon); rotate `btn-rotate-left`/`btn-rotate-right`/`btn-flip-h`. All format actions apply to the full multi-selection via `selTargets()`. **The entire Arrange subsystem (group, z-order, align, distribute) is removed** — no buttons, no keyboard shortcuts, no functions.
 
 ### Panels / popups (element IDs)
 - `#panel` — floating **Properties** panel (font, size, colours, opacity, border, shadow, position/size, rotation, image replace, table toolbar `#section-table`). Draggable by `#panel-drag-handle`. Positioned by `positionPanelNearElement()` which is **`canvasScale`‑aware**.
@@ -160,13 +161,11 @@ Injects `<style id="__editor-styles__">` (handle styles + `[contenteditable=true
 ### 8.4 Move / resize / rotate / smart guides / handles
 - **Drag**: overlay `mousemove` while `isDragging` updates `style.left/top` for every element in `selectedEls` (delta `(clientX-dragStart.x)/canvasScale`). It calls **`repositionOverlayHandles()`** so the handles/rotation line follow live, and `showSmartGuides`. On `mouseup` it rebuilds handles (`addResizeHandles`).
 - **Resize**: 8 handles (`addResizeHandles`); corner handles honour **Shift = lock aspect**. Divides deltas by `zoomLevel/100` (= `canvasScale`). Flow elements get a placeholder during resize then return to flow with explicit size; handles refresh on mouseup.
-- **Rotate**: rotate handle; **Shift = snap to 15°**. The pivot centre is computed in **parent‑viewport coords** (`iframeRect + internalCentre*canvasScale`) so it matches `e.clientX/Y` (this also fixes the historical pivot‑offset bug). `rotateEl(deg)` for the ±90° buttons; flip via `scaleX(-1)`.
+- **Rotate**: rotate handle; **Shift = snap to 15°**. The pivot centre is computed in **parent‑viewport coords** (`iframeRect + internalCentre*canvasScale`) so it matches `e.clientX/Y` (this also fixes the historical pivot‑offset bug). ±90° buttons and flip (`scaleX(-1)`) are inlined in their listeners and act on the full `selTargets()` selection.
 - **Handles** live inside the iframe. For positioned editor objects they are appended as children (move with the element). For **flow** elements they live in an external `#__editor-handles-overlay__` positioned in iframe‑document coords — `repositionOverlayHandles()` keeps that overlay tracking the element during drag, and gestures rebuild it after.
 
-### 8.5 Arrange — `// === ARRANGE ... ===`
-- `groupSelected` / `ungroupSelected` — wrap/unwrap in `div[data-editor-object="group"]`; **Shift+G** toggles via `groupOrUngroup` (keyboard‑only — no button).
-- Z‑order `orderZ('front'|'back'|'forward'|'backward')` using `getMaxZ`/`getMinZ`; **Shift+]/Shift+[** for forward/backward (keyboard‑only — no button).
-- `alignObjects(edge)` and `distributeObjects('h'|'v')` still exist (spacer‑safe via `toAbsolute()`) but are **not wired to any UI** after the Align/Order removal.
+### 8.5 Arrange — removed
+The entire arrange subsystem (`groupSelected`, `ungroupSelected`, `groupOrUngroup`, `orderZ`, `getMaxZ`, `getMinZ`, `alignObjects`, `distributeObjects`, `toAbsolute`, `canvasBox`, `openMenu`) has been removed from code. No ribbon UI, no keyboard shortcuts. The `// === ARRANGE: marquee selection ===` section banner covers only multi-select/marquee logic.
 
 ### 8.6 Insert
 - **Text box** — absolute `div[data-editor-object=textbox]`, transparent background, thin border; default text "Type here…".
@@ -209,7 +208,7 @@ Collapsible section in the Reflection panel. Settings in `localStorage`: `vhe_ai
 - **Offline reality**: the editor stays offline; the AI *call* needs internet. The key lives only in the browser. From `file://` some providers may refuse CORS — serving the file locally fixes it. Failures are surfaced inline and never block the editor.
 
 ### 8.12 Format / properties — `updatePanel` + panel listeners
-Font family/size/colour, background + opacity, border, shadow toggle, X/Y/W/H/rotation inputs, image replace, table toolbar. Ribbon `btn-bold/italic/underline` map to inline styles via `toggleBlockFormat(el,'B'|'I'|'U')`; *text* align sets `text-align`. Fill/Stroke/Shadow buttons open colour inputs / toggle shadow.
+Font family/size/colour, background + opacity, border, shadow toggle, X/Y/W/H/rotation inputs, image replace, table toolbar. Ribbon `btn-bold/italic/underline` map to inline styles via `toggleBlockFormat(el,'B'|'I'|'U')`; *text* align sets `text-align`. Fill/Stroke/Shadow buttons open colour inputs / toggle shadow. **All format actions (panel and ribbon) run through `selTargets()`** — returning `selectedEls` for a multi-selection or `[selectedEl]` for a single selection — so every format operation applies to the complete selection at once.
 
 ### 8.13 History — `saveState`, `getCleanHTML`, `undo`/`redo`, `restoreFromHistory`
 `saveState()` pushes `getCleanHTML()` (cap 60). `restoreFromHistory()` deselects, `document.write`s the snapshot, re‑runs `setupIframeListeners`. Reflection‑panel edits do **not** go through this stack (they autosave to localStorage). **Object** undo/redo is bound to `Ctrl/⌘+Z` etc. but is **skipped while typing in an editable**, so native text undo works there.
@@ -219,7 +218,7 @@ Toggles a fixed `#__editor-grid__` overlay (20px grid). Removed from export.
 
 ---
 
-## 9. Export semantics (`getCleanHTML` → download `documento-editado.html`)
+## 9. Export semantics (`getCleanHTML` → download `<originalname>-editado.html`)
 
 **Stripped** (transient editor UI): resize/rotate handles + rotation line, resize placeholders, `#__editor-grid__`, all `contenteditable` attributes, all `data-editor-selected`, the injected anchor‑click‑blocker helper.
 **Injected for export then removed from the live DOM**: `<aside data-editor-reflection>` with the panel notes.
@@ -236,11 +235,10 @@ Bound in **two** places — the parent `document` keydown and the in‑iframe ke
 |---|---|---|
 | Shift+E / **Shift+B** | Edit / **Browse** mode | Browse moved from Shift+N → **Shift+B** |
 | **Ctrl/⌘+B / I / U** | bold / italic / underline | on a selected block; while editing text the browser formats natively (handler stands down) |
-| Shift+G | group ↔ ungroup toggle | keyboard‑only (no button) |
-| Shift+] / Shift+[ | bring forward / send backward | detected as `}` / `{`; keyboard‑only |
 | Ctrl/⌘+Z | undo | skipped while typing (native text undo) |
 | Ctrl/⌘+Shift+Z · Ctrl/⌘+Y | redo | skipped while typing |
-| Ctrl/⌘+C / V | copy / paste object | |
+| Ctrl/⌘+C | copy object | |
+| Ctrl/⌘+V | paste — object if internal clipboard; else OS clipboard image (→ `<img>`) or plain text (→ textbox) | |
 | Ctrl/⌘+D | duplicate | `preventDefault` always (kills Safari's "add bookmark"); duplicates only if something is selected |
 | Delete / Backspace | delete selection | guarded by `isTypingInEditable` |
 | Arrows (Shift = 10px) | nudge selection | whole multi‑selection moves; ignored with ⌘/Ctrl held |
@@ -281,7 +279,7 @@ Rules of thumb: hit‑testing/marquee = iframe‑internal (divide by scale); dra
 - **Reflection scaling** keeps the HTML from reflowing, but relies on every pointer path being `canvasScale`‑aware. If you add a new pointer handler, divide its parent→iframe conversion by `canvasScale`.
 - **Eraser is area/segment‑level** with three preset radii — not pixel‑level and not free radius.
 - **Highlighter is a translucent overlay band**, not true multiply (overlay isolation). Text stays readable through 45% ink.
-- **Align/Distribute live in code but have no UI** (buttons removed); Group/Order are keyboard‑only.
+- **Arrange (group/order/align/distribute) is entirely gone** — removed from code, UI and keyboard shortcuts.
 - **AI is online‑only**; local models are out of scope.
 - **`document.write` + `execCommand`** are used (deprecated but universally supported); acceptable for an offline single‑file tool.
 - **Markdown export** covers the blocks the slash menu produces; hand‑pasted exotic HTML may convert imperfectly (never crashes).
@@ -299,11 +297,11 @@ There is no test runner. Verified workflow:
 
 ## 15. Roadmap / backlog (decision tree for the next agent)
 
-**Shipped**: modes; select (click/ctrl/marquee); move/resize/rotate (parent‑coord pivot) with live‑following handles; group + z‑order (keyboard); insert (text / 21 study shapes+icons with centred labels / image / table / coloured notes); table editing; text editing + slash blocks (basic + study); pencil/highlighter/area‑eraser with distinct cursors and unified palette; hyperlinks that open in a new window; docked Reflection panel + AI + Markdown import/export + clear + **proportional canvas scaling**; undo/redo; grid; clean export with reflection round‑trip; ALETHEIA branding (inline favicon + macOS icon); Mac ⌘ shortcuts.
+**Shipped**: modes; select (click/ctrl/marquee); move/resize/rotate (parent‑coord pivot) with live‑following handles; insert (text / 21 study shapes+icons with centred labels / image / table / coloured notes); table editing; text editing + slash blocks (basic + study); pencil/highlighter/area‑eraser with distinct cursors and unified palette; hyperlinks that open in a new window; docked Reflection panel + AI + Markdown import/export + clear + **proportional canvas scaling**; undo/redo; grid; clean export with reflection round‑trip; ALETHEIA branding (inline favicon + macOS icon); Mac ⌘ shortcuts; **multi-select format** (all panel + ribbon format actions apply to full selection); **system clipboard paste** (OS images and text); **filename-preserving export** (`<name>-editado.html`).
 
 **Candidate next steps** (each independently shippable):
-- **P1**: whole‑document autosave + "restore session"; "select all objects"; change note/shape colour after insert; re‑expose Align/Distribute behind a small menu if wanted.
-- **P2**: multi‑object resize; snap‑to‑object guides; explicit canvas zoom UI (reuse `canvasScale`); "Save to file" via File System Access API; PDF/PNG export.
+- **P1**: whole‑document autosave + "restore session"; "select all objects"; change note/shape colour after insert.
+- **P2**: multi‑object resize; snap‑to‑object guides; canvas zoom UI; "Save to file" via File System Access API; PDF/PNG export; re-introduce Arrange (group/z-order/align/distribute) if needed.
 - **P3**: layers panel; format painter; comment pins; in‑document search; strip the dead `__editor-styles__` CSS from exports; pixel‑level eraser.
 
 When extending: keep it a single offline vanilla file; tag new inserted things with `data-editor-object`; leave a `flowSpacer` whenever you pull flow content out of flow; **divide any new parent→iframe pointer math by `canvasScale`**; end every mutating action with `saveState()`; re‑bind iframe listeners inside `setupIframeListeners`; verify against a spread of real pages with zero console errors.

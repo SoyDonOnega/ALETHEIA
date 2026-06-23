@@ -340,14 +340,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
           <span class="ribbon-group-label">View</span>
         </div>
       </div>
-      <div class="ribbon-group">
-        <div class="rg-wrap" style="align-items:center;gap:6px;">
-          <button class="rb-btn rb-btn-sm" id="btn-zoom-out" title="Zoom out (-)">−</button>
-          <span id="zoom-label" style="font-size:11px;min-width:34px;text-align:center;color:var(--text-muted);">100%</span>
-          <button class="rb-btn rb-btn-sm" id="btn-zoom-in" title="Zoom in (+)">+</button>
-          <span class="ribbon-group-label">Zoom</span>
-        </div>
-      </div>
     </div>
 
     <!-- INSERT TAB -->
@@ -748,8 +740,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
   let gridVisible = false;
   let zoomLevel = 100;
   let canvasScale = 1;  // <1 while the Reflection panel scales the canvas down (no reflow)
-  let manualZoom = 1.0;
-  let _reflScale = 1.0;
   let currentFileName = 'documento-editado';
   // Scale the iframe down proportionally when Reflection is open so the HTML never reflows;
   // restores to 1:1 when closed. canvasScale stays 1 when closed → pointer math is unchanged.
@@ -758,38 +748,21 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
     const wrap = document.getElementById('canvas-wrap');
     const open = reflectionPanel.classList.contains('open');
     if(!open || !wrap) {
-      _reflScale = 1;
-      canvasScale = manualZoom;
-      zoomLevel = manualZoom * 100;
-      if(manualZoom !== 1) {
-        iframe.style.transformOrigin = 'top left';
-        iframe.style.transform = 'scale(' + manualZoom + ')';
-      } else {
-        iframe.style.transform = '';
-        iframe.style.transformOrigin = '';
-      }
-      iframe.style.width = '';
-      iframe.style.height = '';
+      canvasScale = 1; zoomLevel = 100;
+      iframe.style.transform = ''; iframe.style.transformOrigin = '';
+      iframe.style.width = ''; iframe.style.height = '';
       if(selectedEl) addResizeHandles();
-      updateZoomLabel();
       return;
     }
     const avail = wrap.clientWidth;
     const design = (wrap.parentElement ? wrap.parentElement.clientWidth : avail) || avail;
-    _reflScale = (design > 0 && avail > 0) ? (avail / design) : 1;
-    canvasScale = _reflScale * manualZoom;
+    canvasScale = (design > 0 && avail > 0) ? (avail / design) : 1;
     zoomLevel = canvasScale * 100;
     iframe.style.transformOrigin = 'top left';
     iframe.style.width = design + 'px';
-    iframe.style.height = (wrap.clientHeight / _reflScale) + 'px';
+    iframe.style.height = (wrap.clientHeight / canvasScale) + 'px';
     iframe.style.transform = 'scale(' + canvasScale + ')';
     if(selectedEl) addResizeHandles();
-    updateZoomLabel();
-  }
-
-  function updateZoomLabel() {
-    const lbl = document.getElementById('zoom-label');
-    if(lbl) lbl.textContent = Math.round(manualZoom * 100) + '%';
   }
   let panelHiddenDuringDrag = false;
   let clipboardEl = null;
@@ -2070,18 +2043,6 @@ h1,h2,h3,h4,h5,h6 { font-family: system-ui, -apple-system, "Helvetica Neue", "Se
 
 
   // === GRID & SNAP ===
-  // === ZOOM ===
-  const ZOOM_STEPS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-  document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    const idx = ZOOM_STEPS.findIndex(z => z > manualZoom + 0.01);
-    if(idx !== -1) { manualZoom = ZOOM_STEPS[idx]; applyReflectionScale(); }
-  });
-  document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    const arr = [...ZOOM_STEPS].reverse();
-    const idx = arr.findIndex(z => z < manualZoom - 0.01);
-    if(idx !== -1) { manualZoom = arr[idx]; applyReflectionScale(); }
-  });
-
   btnGridToggle.addEventListener('click', () => {
     gridVisible = !gridVisible;
     btnGridToggle.classList.toggle('active', gridVisible);
