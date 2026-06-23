@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Office / editor temp files
+~$*.docx
+~$*.doc
+*.tmp
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Node (only if you ever add tooling)
+node_modules/
+npm-debug.log*
+
+# OS / misc
+Thumbs.db
+*.log
