@@ -12,7 +12,7 @@
 
 ## Why this exists
 
-I build a lot of **HTML study documents** out of my [second brain](https://www.buildingasecondbrain.com/) — notes, summaries, one-pagers — very often generated with an LLM. That part works well. The friction was always the **last mile**: once the page exists, I want to *fix a heading, move a box, circle a term, drop a star next to the key idea, jot a question in the margin* — and I did not want to drop back into a prompt → regenerate → re-download loop with an AI every single time I needed a small change.
+I build a lot of **HTML study documents** — notes, summaries, one-pagers — very often generated with an LLM. That part works well. The friction was always the **last mile**: once the page exists, I want to *fix a heading, move a box, circle a term, drop a star next to the key idea, jot a question in the margin* — and I did not want to drop back into a prompt → regenerate → re-download loop with an AI every single time I needed a small change.
 
 In Tiago Forte's framing, a second brain runs on **CODE — Capture, Organise, Distil, Express.** LLMs are great at the first three and at the *first draft* of "Express". **ALETHEIA is the tool for the rest of Express:** taking that generated HTML and refining it by **direct manipulation** — selecting, moving, annotating — so the document becomes *mine* without another round-trip through a model.
 
@@ -109,6 +109,3 @@ This is a personal study tool, shared in case it's useful. Issues and PRs are we
 
 [MIT](LICENSE) — do what you like; no warranty.
 
----
-
-<sub>The name and framing draw on Heidegger's *aletheia* and on Tiago Forte's *Building a Second Brain* (CODE/PARA, personal knowledge management). See <https://www.buildingasecondbrain.com/> and <https://fortelabs.com/blog/basboverview/>.</sub>
