@@ -79,7 +79,7 @@ Generate with whatever you like; **finish by hand, fast.**
 
 ## Documentation
 
-- **[User Manual (DOCX)](docs/Manual_ALETHEIA_User_V1_EN.docx)** — step-by-step guide for everyday use.
+- **[User Manual (DOCX)](docs/Manual_ALETHEIA_User_V0_EN.docx)** — step-by-step guide for everyday use.
 - **[DEVELOPER.md](DEVELOPER.md)** — full architecture, subsystems, coordinate systems and invariants for anyone extending the editor.
 - **[CHANGELOG.md](CHANGELOG.md)** — what changed across versions.
 
