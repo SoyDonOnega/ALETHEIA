@@ -14,8 +14,6 @@
 
 I build a lot of **HTML study documents** — notes, summaries, one-pagers — very often generated with an LLM. That part works well. The friction was always the **last mile**: once the page exists, I want to *fix a heading, move a box, circle a term, drop a star next to the key idea, jot a question in the margin* — and I did not want to drop back into a prompt → regenerate → re-download loop with an AI every single time I needed a small change.
 
-In Tiago Forte's framing, a second brain runs on **CODE — Capture, Organise, Distil, Express.** LLMs are great at the first three and at the *first draft* of "Express". **ALETHEIA is the tool for the rest of Express:** taking that generated HTML and refining it by **direct manipulation** — selecting, moving, annotating — so the document becomes *mine* without another round-trip through a model.
-
 > Truth, for Heidegger, is *aletheia* (ἀλήθεια) — **unconcealment**, bringing what is latent into the open. That is exactly what this tool does to an HTML file: it makes its structure visible and editable. The name folds that idea together with **IA** (AI).
 
 ## What it is
